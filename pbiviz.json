@@ -1,0 +1,28 @@
+{
+  "visual": {
+    "name": "treeviz",
+    "displayName": "treeviz",
+    "guid": "treeviz2DC46116C4554E20B59DD525EA4DC972",
+    "visualClassName": "Visual",
+    "version": "1.0.1",
+    "description": "Tree structure data visualization.",
+    "supportUrl": "https://github.com/AC-PAS-NAV3-dev01/PowerBI-visuals-TreeViz",
+    "gitHubUrl": "https://github.com/AC-PAS-NAV3-dev01/PowerBI-visuals-TreeViz"
+  },
+  "apiVersion": "1.7.0",
+  "author": {
+    "name": "Martin Molek",
+    "email": "martin.molek@autocont.cz"
+  },
+  "assets": {
+    "icon": "assets/icon.png"
+  },
+  "externalJS": [
+    "node_modules/powerbi-visuals-utils-dataviewutils/lib/index.js",
+    "node_modules/d3/d3.min.js"
+  ],
+  "style": "style/visual.less",
+  "capabilities": "capabilities.json",
+  "dependencies": "dependencies.json",
+  "stringResources": []
+}
