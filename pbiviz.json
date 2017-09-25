@@ -6,12 +6,12 @@
     "visualClassName": "Visual",
     "version": "1.0.2",
     "description": "Tree structure data visualization.",
-    "supportUrl": "",
-    "gitHubUrl": ""
+    "supportUrl": "https://github.com/AC-PAS-NAV3-dev01/PowerBI-visuals-TreeViz",
+    "gitHubUrl": "https://github.com/AC-PAS-NAV3-dev01/PowerBI-visuals-TreeViz"
   },
   "apiVersion": "1.7.0",
   "author": {
-    "name": "Martin Molek",
+    "name": "AutoCont CZ a.s.",
     "email": "martin.molek@autocont.cz"
   },
   "assets": {
