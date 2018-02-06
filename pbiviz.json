@@ -2,9 +2,9 @@
   "visual": {
     "name": "treeviz",
     "displayName": "treeviz",
-    "guid": "treeviz2DC46116C4554E20B59DD525EA4DC972",
+    "guid": "treeviz2DC46116C4554E20B59DD525EA4DC973",
     "visualClassName": "Visual",
-    "version": "1.0.2",
+    "version": "1.0.4",
     "description": "Custom visual that transforms data into tree structure.",
     "supportUrl": "https://github.com/AC-PAS-NAV3-dev01/PowerBI-visuals-TreeViz",
     "gitHubUrl": "https://github.com/AC-PAS-NAV3-dev01/PowerBI-visuals-TreeViz"

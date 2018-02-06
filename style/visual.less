@@ -1,12 +1,12 @@
-.boxbg {fill: blue;  stroke: grey; fill-opacity: 0.1; }
+//.boxbg {fill: blue;  stroke: grey; fill-opacity: 0.1; }
 .box {width: 100px; height: 60px; }
 
 .box text {text-anchor: middle; font-size: 15px; }
-.boxhead, .upperText {font-weight:bold; }
-.percentage, .upperText {visibility: hidden; }
+.boxhead {font-weight:bold; }
+.percentage {visibility: hidden; }
 .box:hover .percentage {visibility: visible; }
 .box:hover .value {visibility: hidden; }
-.box:hover .upperText {visibility: visible; }
+.box:hover {visibility: visible; }
 
 .fullGreen {fill: #4EF046; }
 .halfGreen {fill: #9CF698; }
@@ -14,10 +14,10 @@
 .halfRed {fill: #FF9999; }
 
 .drillCrc {fill: green; }
-.nextCrc {fill: blueviolet; }
+.nextCrc {fill: orange; }
 .prevCrc {fill: orange; }
-.drillCrc, .nextCrc, .prevCrc {opacity: 0.2; }
-.drillBtn:hover .drillCrc, .nextBtn:hover .nextCrc, .prevBtn:hover .prevCrc {opacity: 0.7; }
+.drillCrc, .nextCrc, .prevCrc {opacity: 0.5; }
+.drillBtn:hover .drillCrc, .nextBtn:hover .nextCrc, .prevBtn:hover .prevCrc {opacity: 0.8; }
 .arrow {stroke: gray; stroke-width: 1.2; fill: none; }
 .drillBtn:hover .arrow, .nextBtn:hover .arrow, .prevBtn:hover .arrow {stroke: black; }
 

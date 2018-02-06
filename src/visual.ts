@@ -6,21 +6,25 @@ module powerbi.extensibility.visual {
         private settings: VisualSettings;
         private previousUpdateData;
 
+        private host: IVisualHost;
+        private tooltips: VisualTooltipDataItem[];
+        private element;
+
         constructor(options: VisualConstructorOptions) {
             //console.log('Visual constructor', options);
             this.svg = d3.select(options.element).append("svg").attr("style", "padding: 2px; display: block; min-width:99%");
             options.element.style.overflow = 'auto';
+            this.host = options.host;
+            this.element = options.element;
         }
 
         public update(options: VisualUpdateOptions) {
-            console.log("=========")
-
             // check if update is really needed
             if (JSON.stringify(options.dataViews) == this.previousUpdateData)
                 return;
             else
                 this.previousUpdateData = JSON.stringify(options.dataViews);
-
+    
             // Clean everything
             this.svg.selectAll("g").remove();
             this.svgG = this.svg.append("g").attr("style", "display: block; margin: auto; overflow:auto; ");
@@ -40,7 +44,6 @@ module powerbi.extensibility.visual {
             let negWidth = 0;
             let maxDepth = 1;
             let boxClips;
-            let tooltip;
 
             // Get settings from formatting
             this.settings = Visual.parseSettings(options && options.dataViews && options.dataViews[0]);
@@ -67,14 +70,13 @@ module powerbi.extensibility.visual {
                 let retval = new Array(valuesRows+1);
                 for (let i = 0; i < valuesRows+1; i++)
                     retval[i] = 0;
-                
                 for (let i = 0; i < maxColumns; i++)
                 {
                     let parentsFit = true;
                     let tmpNodex = p;
                     for (let j = depth; j > 0; j--)
                     {
-                        if(tmpNodex.data != categorical.categories[j-1].values[i])
+                        if(tmpNodex.data != (categorical.categories[j-1].values[i] === null ? "(Blank)" : categorical.categories[j-1].values[i].toString()))
                         {
                             parentsFit = false;
                             break;
@@ -86,7 +88,7 @@ module powerbi.extensibility.visual {
                         let push = true;
                         for (let child of p.children)
                         {
-                            if (child.data == categorical.categories[depth].values[i])
+                            if (child.data == (categorical.categories[depth].values[i] === null ? "(Blank)" : categorical.categories[depth].values[i].toString()))
                             {
                                 push = false;
                                 break;
@@ -94,7 +96,7 @@ module powerbi.extensibility.visual {
                         }
                         if (push)
                         {
-                            tmpNodex = new Nodex(categorical.categories[depth].values[i].toString(), p);
+                            tmpNodex = new Nodex((categorical.categories[depth].values[i] === null ? "(Blank)" : categorical.categories[depth].values[i].toString()), p);
                             if (depth == maxRows-1)
                             {
                                 tmpNodex.sums[0] = 1;
@@ -194,6 +196,38 @@ module powerbi.extensibility.visual {
                     }
                     node.children.push(substNode);
                 }
+            }
+            
+            function unhideAll(node, intoDepth)
+            {
+                if (intoDepth <= 0)
+                    return; 
+                let unhideDown = true;
+                if(!_this.settings.TreeVizSettings.drillBlank)
+                    unhideDown = !isLastReasonable(node, "(Blank)");
+                if(!_this.settings.TreeVizSettings.drillEmpty)
+                    unhideDown = unhideDown && !isLastReasonable(node, "");
+                if(unhideDown)
+                {
+                    unhide(node,_this.settings.TreeVizSettings.showLimit);
+                }
+                for(let i = 0; node.children.length > i; i++)
+                {
+                    unhideAll(node.children[i], intoDepth-1);
+                }
+            }
+
+
+            function isLastReasonable(node, nonreasonable)
+            {
+                if (node.hiddenChildren.length + node.children.length == 0)
+                    return true;
+                else if (node.children.length > 0)
+                    return false;
+                else if (node.hiddenChildren.length != 1 || node.hiddenChildren[0].data != nonreasonable)
+                    return false;
+                else
+                    return isLastReasonable(node.hiddenChildren[0], nonreasonable);
             }
 
             function rightmost(node, depth)
@@ -345,44 +379,68 @@ module powerbi.extensibility.visual {
                 let timer;
                 let box = _this.svgG.append("g").attr("class","box").attr("style", "clip-path: url(#boxClips)")
                     .on("mouseover", function (d) {
-                        timer = setTimeout(function(){
-                            _this.svg.attr("width", Math.max(maxWidth + nodeWidth + 10 - negWidth, node.final - negWidth + 2*nodeWidth + nodeSeparator + 10)).attr("height",Math.max((maxDepth+1)*100-30,(depth+1)*100+35+valuesRows*25));
-                            tooltip.append("rect").attr("x", node.final - negWidth).attr("y", depth*100+68).attr("width", 2*nodeWidth + nodeSeparator).attr("height", 35+valuesRows*25).attr("class", "tooltipBox");
-                            tooltip.append("path").attr("d", "M " + (node.final - negWidth + 25) + " " + (depth*100+68) + " l 12 -12 l 12 12 ").attr("class", "tooltipBox");
-                            tooltip.append("text").attr("x", node.final - negWidth + 10).attr("y", depth*100+90).text("Records").attr("class", "tooltipText");
-                            for(let i = 0; i <= valuesRows; i++)
-                                tooltip.append("text").attr("x", node.final - negWidth + 2*nodeWidth + nodeSeparator - 10).attr("y", depth*100+90+25*i).attr("class", "tooltipText").attr("style", "text-anchor: end; ")
-                                    .text((node.sums[i].toFixed(0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " "));
-                            for(let i = 1; i <= valuesRows; i++)
-                                tooltip.append("text").attr("x", node.final - negWidth + 10).attr("y", depth*100+90+25*i).attr("class", "tooltipText")
-                                    .text(categorical.values[i-1].source.displayName.length > 14 ? categorical.values[i-1].source.displayName.substring(0,12) + "..." : categorical.values[i-1].source.displayName);
-                            tooltip.attr("opacity", 0.9).attr("x", node.final - negWidth).attr("y", depth*100+60);
-                        },300);
+                        let e = d;
+                        let tooltipData: VisualTooltipDataItem[] = [{
+                            displayName: "Records",
+                            value: node.sums[0],
+                            header: node.data,
+                        }]
+                        for(let i = 1; i <= valuesRows; i++)
+                        {
+                            tooltipData.push({
+                            displayName: categorical.values[i-1].source.displayName,
+                            value: (node.sums[i].toFixed(0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+                            })
+                        }
+                        _this.host.tooltipService.show({
+                            dataItems: tooltipData,
+                            identities: [],
+                            coordinates: [(d3.mouse(this)[0]-_this.element.scrollLeft),(d3.mouse(this)[1]-_this.element.scrollTop)],
+                            isTouchEvent: false
+                        });
                     })
+                    .on("mousemove", function (d) {
+                        let tooltipData: VisualTooltipDataItem[] = [{
+                            displayName: "Records",
+                            value: node.sums[0],
+                            header: node.data
+                        }]
+                        for(let i = 1; i <= valuesRows; i++)
+                        {
+                            tooltipData.push({
+                            displayName: categorical.values[i-1].source.displayName,
+                            value: (node.sums[i].toFixed(0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+                            })
+                        }
+                        _this.host.tooltipService.move({
+                            dataItems: tooltipData,
+                            identities: [],
+                            coordinates: [(d3.mouse(this)[0]-_this.element.scrollLeft),(d3.mouse(this)[1]-_this.element.scrollTop)],
+                            isTouchEvent: false,
+                        });
+                    })                    
                     .on("mouseout", function (d) {
-                        clearTimeout(timer);
-                        tooltip.attr("opacity", 0).attr("x", -1000).attr("y", -1000);
-                        tooltip.selectAll("rect").remove();
-                        tooltip.selectAll("path").remove();
-                        tooltip.selectAll("text").remove();
+                        _this.host.tooltipService.hide({
+                            immediately: true,
+                            isTouchEvent: false
+                        });
                     });
-                box.append("rect").attr("x", node.final - negWidth).attr("y", depth*100).attr("class","boxbg").attr("rx", node.substitution ? 30 : 5).attr("width",100).attr("height",60);
-                boxClips.append("rect").attr("x", node.final - negWidth).attr("y", depth*100).attr("class","boxbg").attr("rx", node.substitution ? 30 : 5).attr("width",100).attr("height",60);
-                
-                let fullWidth = (<SVGTextElement> box.append("text").attr("x", node.final + nodeWidth/2 - negWidth).attr("y", depth*100-5).attr("class","upperText").text(node.data).node()).getComputedTextLength();
-                if(fullWidth > nodeWidth)
-                    boxClips.append("rect").attr("x",  node.final + nodeWidth/2 - negWidth - fullWidth/2).attr("y", depth*100-20).attr("width",fullWidth).attr("height",19);
-                
+                box.append("rect").attr("x", node.final - negWidth).attr("y", depth*100).attr("width",100).attr("height",60)
+                    .attr("fill",_this.settings.TreeVizFormat.boxbg).attr("stroke",_this.settings.TreeVizFormat.lines).attr("rx", node.substitution ? _this.settings.TreeVizFormat.Rx : _this.settings.TreeVizFormat.rx);
+                boxClips.append("rect").attr("x", node.final - negWidth).attr("y", depth*100).attr("class","boxbg").attr("rx", node.substitution ? _this.settings.TreeVizFormat.Rx : _this.settings.TreeVizFormat.rx).attr("width",100).attr("height",60);
+                let fullWidth = (<SVGTextElement> box.append("text").attr("x", -1000).attr("y", -1000).attr("class","boxhead").text(node.data).node()).getComputedTextLength();
                 let i = 0;
                 while (fullWidth > nodeWidth)
                 {
                     i++;
-                    fullWidth = (<SVGTextElement> box.append("text").attr("x", -1000).attr("y", -1000).attr("class","upperText").text((node.data.substring(0,(node.data).length-i) + "...")).node()).getComputedTextLength();
+                    fullWidth = (<SVGTextElement> box.append("text").attr("x", -1000).attr("y", -1000).attr("class","boxhead").text((node.data.substring(0,(node.data).length-i) + "...")).node()).getComputedTextLength();
                 }
-                box.append("text").attr("x", node.final + nodeWidth/2 - negWidth).attr("y", depth*100+(_this.settings.TreeViz.showMeasure ? 18 : 28)).attr("class","boxhead")
+                box.selectAll("text").remove();
+
+                box.append("text").attr("x", node.final + nodeWidth/2 - negWidth).attr("y", depth*100+(_this.settings.TreeVizSettings.showMeasure ? 18 : 28)).attr("class","boxhead")
                     .text(node.data.substring(0,(node.data).length-i) + (i==0 ? "" : "..."));
                 
-                if(_this.settings.TreeViz.showMeasure)
+                if(_this.settings.TreeVizSettings.showMeasure)
                 {
                     if(node.parent != null)
                     {
@@ -418,13 +476,18 @@ module powerbi.extensibility.visual {
                     box.append("text").attr("x", node.final + nodeWidth/2 - negWidth).attr("y", depth*100+38).attr("class","percentage")
                         .text((node.sums[valuesRows > 0 ? 1 : 0]/_root.sums[valuesRows > 0 ? 1 : 0]*100).toFixed(1) + " " + ((depth <= 1) ? "" : "| " + (node.sums[valuesRows > 0 ? 1 : 0]/node.parent.sums[valuesRows > 0 ? 1 : 0]*100).toFixed(1)) + " %");
                 }
+                let showDrill = true;
+                if(!_this.settings.TreeVizSettings.drillBlank)
+                    showDrill = !isLastReasonable(node, "(Blank)");
+                if(!_this.settings.TreeVizSettings.drillEmpty)
+                    showDrill = showDrill && !isLastReasonable(node, "");
 
-                if (!node.substitution && depth < maxRows)
+                if (!node.substitution && depth < maxRows && showDrill)
                 {
                     let prevBtn = box.append("g").attr("class","drillBtn") 
                     .on("click", function (d) {
                         if (node.children.length == 0)
-                            unhide(node,_this.settings.TreeViz.showLimit);
+                            unhide(node,_this.settings.TreeVizSettings.showLimit);
                         else
                             hideAll(node);
                         drawAll();
@@ -463,7 +526,7 @@ module powerbi.extensibility.visual {
                 if(depth > 0)
                 {
                     _this.svgG.append("line").attr("x1", node.final + nodeWidth/2 - negWidth).attr("y1", depth*100)
-                        .attr("x2", node.parent.final + nodeWidth/2  - negWidth).attr("y2", (depth-1)*100+60).attr("style", "stroke: grey; ");
+                        .attr("x2", node.parent.final + nodeWidth/2  - negWidth).attr("y2", (depth-1)*100+60).attr("stroke", _this.settings.TreeVizFormat.lines);
                 }
             }
 
@@ -475,7 +538,7 @@ module powerbi.extensibility.visual {
                 negWidth = 0;
                 maxDepth = 0;
                 maxWidth = nodeWidth;
-                firstWalk(_root); 
+                firstWalk(_root);
                 secondWalk(_root, 0); 
                 negWidth -= 10;
                 if(_root.children.length > 0)
@@ -483,16 +546,13 @@ module powerbi.extensibility.visual {
                 else
                     _root.final = 0;
                 finalDraw(_root, 0, "0"); //draw
-                tooltip = _this.svgG.append("g"); //_this.svgG.append("rect").attr("x", 75).attr("y", 75).attr("width", 150).attr("height", 80).attr("opacity",0).attr("class", "tooltip");
-                //let bzum = <SVGTextElement> _this.tooltip.append("text").attr("x", 300).attr("y", 300).attr("class","toolboxText").node();
-                //bzum.innerHTML = "pes2";
                 _this.svg.attr("width", maxWidth + nodeWidth + 10 - negWidth).attr("height",(maxDepth+1)*100-30);
             }
 
-            let _root = new Nodex((_this.settings.TreeViz.showMeasure ? "Total" : "Everything"), null);
+            let _root = new Nodex((_this.settings.TreeVizSettings.showMeasure ? "Total" : "Everything"), null);
             _root.sums = fillSubTree(_root,0); // fill
             hideAll(_root);
-            unhide(_root,_this.settings.TreeViz.showLimit);
+            unhideAll(_root,_this.settings.TreeVizSettings.defaultDrillDown);
             drawAll();
 
             //console.log(_root);

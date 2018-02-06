@@ -12,17 +12,72 @@
         }
     ],
     "objects": {
-        "TreeViz": {
+        "TreeVizSettings": {
             "displayName": "TreeViz settings",
             "properties": {
                 "showMeasure": {
                     "displayName": "Show measure",
                     "type": {
-                         "bool": true 
+                        "bool": true 
                     }
                 },
                 "showLimit": {
                     "displayName": "Children limit",
+                    "type": {
+                        "numeric": true 
+                    }
+                },
+                "defaultDrillDown": {
+                    "displayName": "Default DrillDown",
+                    "type": {
+                        "numeric": true    
+                    }
+                },
+                "drillBlank": {
+                    "displayName": "Drill into blanks",
+                    "type": {
+                        "bool": true 
+                    }
+                },
+                "drillEmpty": {
+                    "displayName": "Drill into empty",
+                    "type": {
+                        "bool": true 
+                    }
+                }
+            }
+        },
+        "TreeVizFormat": {
+            "displayName": "TreeViz formatting",
+            "properties": {
+                "boxbg": {
+                    "displayName": "Box background",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "lines": {
+                    "displayName": "Lines",
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "rx": {
+                    "displayName": "Smaller radius",
+                    "type": {
+                        "numeric": true 
+                    }
+                },
+                "Rx": {
+                    "displayName": "Bigger radius",
                     "type": {
                         "numeric": true 
                     }
@@ -84,7 +139,9 @@
                         "in": "category"
                     },
                     "dataReductionAlgorithm": {
-                        "top": {}
+                        "top": {
+                            "count": 10000
+                        }
                     }
                 },
                 "values": {
